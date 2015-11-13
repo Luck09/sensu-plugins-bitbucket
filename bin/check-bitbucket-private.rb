@@ -138,6 +138,8 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
       warning 'Bitbucket rate limit has been exceeded'
     elsif response.code.include?('400') #HTTP 400 Bad request
       unknown 'Bad Request'
+    elsif response.code.include?('401') #HTTP 401 Unathorized
+      warning 'Unauthorized - Check your credentials'
     end
 
     return response.body
