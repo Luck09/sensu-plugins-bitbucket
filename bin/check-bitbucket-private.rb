@@ -40,7 +40,8 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
   option :account,
          description: 'The name of the account to check',
          short: '-a ACCOUNT',
-         long: '--account ACCOUNT'
+         long: '--account ACCOUNT',
+         required: true
 
   option :exclude,
          description: 'Comma delimited list of repos to ignore',
@@ -50,12 +51,14 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
   option :password,
           description: 'The password of the account you are checking',
           short: '-p PASSWORD',
-          long: '--password PASSWORD'
+          long: '--password PASSWORD',
+          default: ''
 
   option :checkforks,
           description: "Check if repos allow public forks",
-          short: '-f true',
-          long: '--forks true'
+          short: '-f',
+          long: '--forks',
+          default: false
 
   def run
     #Argument setup/parsing/checking
@@ -64,19 +67,11 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
     account = cli.config[:account]
     exclude = cli.config[:exclude]
 
-    if not account
-      warning 'No account specified'
-    end
-
     if cli.config[:password]
       password = cli.config[:password]
     end
 
-    if cli.config[:checkforks] && cli.config[:checkforks].include?('true')
-      check_forks = true
-    else
-      check_forks = false
-    end
+    check_forks = cli.config[:checkforks]
 
     if exclude and exclude.include?(',')
       exclude_list = exclude.split(',')
@@ -89,11 +84,11 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
     #Repos are paginated so grab the data from each and put into a single array
     response=fetch_page("#{REPO_URL}/#{account}",account,password)
     data=JSON.parse(response)
-    repo_data = [ ]
+    repo_data = data['values']
     while data['next']
-      repo_data = repo_data + data['values']
       response=fetch_page(data['next'],account,password)
       data=JSON.parse(response)
+      repo_data = repo_data + data['values']
     end
 
     #Iterate/process data
@@ -101,7 +96,7 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
     repos=""
     forks=""
     repo_data.each  do |repo|
-      if  not repo['is_private'] and not exclude_list.include?(repo['name'])
+      if repo['is_private'] == false
         found_public = true
         repos += repo['name'] + " "
       end
@@ -127,9 +122,9 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
   def fetch_page(request_url,account,password)
     uri = URI(request_url)
     http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
     request = Net::HTTP::Get.new(uri.request_uri)
-    if password and account
-      http.use_ssl = true
+    if password.length > 1
       request.basic_auth(account, password)
     end
 
