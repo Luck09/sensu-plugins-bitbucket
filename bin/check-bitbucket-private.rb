@@ -96,7 +96,7 @@ class CheckBitbucketPrivate < Sensu::Plugin::Check::CLI
     repos=""
     forks=""
     repo_data.each  do |repo|
-      if repo['is_private'] == false
+      if repo['is_private'] == false and not exclude_list.include?(repo['name'])
         found_public = true
         repos += repo['name'] + " "
       end
